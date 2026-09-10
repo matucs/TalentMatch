@@ -1,0 +1,26 @@
+{
+  "name": "@talentmatch/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx --conditions=development watch src/main.ts",
+    "start": "node dist/main.js",
+    "reindex": "tsx --conditions=development src/scripts/reindex.ts",
+    "dlq": "tsx --conditions=development src/scripts/dlq.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/credential-provider-node": "^3.840.0",
+    "@talentmatch/config": "workspace:*",
+    "@talentmatch/logger": "workspace:*",
+    "@talentmatch/shared": "workspace:*",
+    "@talentmatch/validation": "workspace:*",
+    "@opensearch-project/opensearch": "^3.5.1",
+    "bullmq": "^5.56.0",
+    "ioredis": "^5.6.1",
+    "mongodb": "^6.17.0"
+  },
+  "devDependencies": { "tsx": "^4.20.3" }
+}

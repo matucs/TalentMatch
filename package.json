@@ -1,0 +1,31 @@
+{
+  "name": "talentmatch",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Production-oriented job matching backend",
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev:api": "pnpm --filter @talentmatch/api dev",
+    "dev:worker": "pnpm --filter @talentmatch/worker dev",
+    "lint": "eslint .",
+    "reindex": "pnpm --filter @talentmatch/worker reindex",
+    "reindex:docker": "docker compose exec -T worker node apps/worker/dist/scripts/reindex.js",
+    "dashboards:setup": "node scripts/setup-opensearch-dashboards.mjs",
+    "dlq": "pnpm --filter @talentmatch/worker dlq",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@types/node": "^22.15.32",
+    "eslint": "^9.29.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.34.1",
+    "vitest": "^3.2.4"
+  }
+}

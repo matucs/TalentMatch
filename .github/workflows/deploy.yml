@@ -1,0 +1,91 @@
+name: Deploy to ECS
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub environment containing AWS deployment variables
+        required: true
+        default: production
+        type: environment
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: talentmatch-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push immutable images
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          API_REPOSITORY: ${{ vars.ECR_API_REPOSITORY }}
+          WORKER_REPOSITORY: ${{ vars.ECR_WORKER_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          API_IMAGE="$REGISTRY/$API_REPOSITORY:$IMAGE_TAG"
+          WORKER_IMAGE="$REGISTRY/$WORKER_REPOSITORY:$IMAGE_TAG"
+          docker build -f infrastructure/docker/api.Dockerfile -t "$API_IMAGE" .
+          docker build -f infrastructure/docker/worker.Dockerfile -t "$WORKER_IMAGE" .
+          docker push "$API_IMAGE"
+          docker push "$WORKER_IMAGE"
+          echo "api_image=$API_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "worker_image=$WORKER_IMAGE" >> "$GITHUB_OUTPUT"
+        id: images
+
+      - name: Register API task revision
+        env:
+          TASK_FAMILY: ${{ vars.ECS_API_TASK_FAMILY }}
+          IMAGE: ${{ steps.images.outputs.api_image }}
+        run: |
+          aws ecs describe-task-definition --task-definition "$TASK_FAMILY" --query taskDefinition > current-api-task.json
+          jq --arg image "$IMAGE" '
+            .containerDefinitions[0].image = $image
+            | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)
+          ' current-api-task.json > next-api-task.json
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://next-api-task.json --query taskDefinition.taskDefinitionArn --output text)
+          echo "task_arn=$TASK_ARN" >> "$GITHUB_OUTPUT"
+        id: api_task
+
+      - name: Register worker task revision
+        env:
+          TASK_FAMILY: ${{ vars.ECS_WORKER_TASK_FAMILY }}
+          IMAGE: ${{ steps.images.outputs.worker_image }}
+        run: |
+          aws ecs describe-task-definition --task-definition "$TASK_FAMILY" --query taskDefinition > current-worker-task.json
+          jq --arg image "$IMAGE" '
+            .containerDefinitions[0].image = $image
+            | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)
+          ' current-worker-task.json > next-worker-task.json
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://next-worker-task.json --query taskDefinition.taskDefinitionArn --output text)
+          echo "task_arn=$TASK_ARN" >> "$GITHUB_OUTPUT"
+        id: worker_task
+
+      - name: Deploy API and worker
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          API_SERVICE: ${{ vars.ECS_API_SERVICE }}
+          WORKER_SERVICE: ${{ vars.ECS_WORKER_SERVICE }}
+          API_TASK: ${{ steps.api_task.outputs.task_arn }}
+          WORKER_TASK: ${{ steps.worker_task.outputs.task_arn }}
+        run: |
+          aws ecs update-service --cluster "$CLUSTER" --service "$API_SERVICE" --task-definition "$API_TASK"
+          aws ecs update-service --cluster "$CLUSTER" --service "$WORKER_SERVICE" --task-definition "$WORKER_TASK"
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$API_SERVICE" "$WORKER_SERVICE"

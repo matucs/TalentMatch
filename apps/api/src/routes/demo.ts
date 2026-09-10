@@ -7,6 +7,9 @@ export function registerDemoRoute(app: ApiInstance): void {
   }, (_request, reply) => reply
     .type('text/html; charset=utf-8')
     .send(demoPage.replaceAll('__JOB_SEARCH_INDEX__', JOB_SEARCH_INDEX)));
+  app.get('/', {
+    schema: { hide: true },
+  }, (_request, reply) => reply.redirect('/demo'));
 }
 
 const demoPage = String.raw`<!doctype html>

@@ -4,6 +4,9 @@ TalentMatch is a production-oriented backend for publishing jobs and matching ca
 
 > Status: backend MVP complete. Job lifecycle, search, caching, idempotent applications, deterministic scoring, production observability, CI/CD, Docker, and AWS ECS configuration are implemented.
 
+**Live demo:** [jobify.158-180-19-147.nip.io](https://jobify.158-180-19-147.nip.io) · [API docs](https://jobify.158-180-19-147.nip.io/docs) · [browser demo](https://jobify.158-180-19-147.nip.io/demo)
+Runs the real Docker images on a self-hosted VM rather than the AWS ECS topology documented below — see [docs/deployment.md](docs/deployment.md#live-public-demo-as-actually-deployed) for exactly what differs and why.
+
 ## Architecture
 
 ```mermaid

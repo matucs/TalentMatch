@@ -1,4 +1,29 @@
-# AWS ECS deployment
+# Deployment
+
+## Live public demo (as actually deployed)
+
+The public instance at `https://jobify.158-180-19-147.nip.io` does not run
+the AWS ECS topology below — that stack costs real money to keep running
+and is documented as the production target, not the portfolio deployment.
+The live demo instead runs the same Docker images on a single self-hosted
+VM, the same free-tier host already used for this author's other public
+demo:
+
+| Component | Where | Setup |
+|---|---|---|
+| API + worker | Oracle Cloud Always Free Ampere A1 VM (Ubuntu, ARM64) | `docker compose -f docker-compose.prod.yml up --build`, same `infrastructure/docker/*.Dockerfile` images used locally |
+| MongoDB, Redis, OpenSearch | Same VM, Docker Compose | Self-hosted single-node containers (`OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m` to fit the VM's memory) rather than managed services — no always-on free managed OpenSearch tier exists |
+| TLS / routing | Caddy (already running on the VM for the other demo) | An added Caddyfile site block reverse-proxies `jobify.<vm-ip>.nip.io` to `localhost:3000`; automatic Let's Encrypt, no purchased domain |
+| Auth | `AUTH_ENABLED=false` | The live demo uses the development identity headers (`X-Development-Subject`/`X-Development-Role`) documented in the README; there is no public OIDC provider wired up for a portfolio demo |
+
+This means the live demo is a real, working deployment of the actual
+application code and Docker images — not a mock — just on cheaper
+infrastructure than the ECS design below targets. The ECS/Fargate stack,
+CloudFormation template, and GitHub OIDC deploy workflow remain the
+documented answer for what running this in a funded production
+environment looks like.
+
+## AWS ECS deployment (documented production target)
 
 The production topology uses two ECS Fargate services in private subnets. An HTTPS Application Load Balancer routes only to the API; the worker has no inbound listener. MongoDB, Redis, and OpenSearch remain managed external dependencies.
 
